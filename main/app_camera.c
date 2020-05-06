@@ -19,16 +19,17 @@
  * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#include "esp_log.h"
 #include "driver/ledc.h"
-#include "esp_camera.h"
+#include "esp_log.h"
+
 #include "app_camera.h"
+#include "esp_camera.h"
+
 #include "sdkconfig.h"
 
+static const char* TAG = "app_camera";
 
-static const char *TAG = "app_camera";
-
-void app_camera_main ()
+void app_camera_main()
 {
 #if CONFIG_CAMERA_MODEL_ESP_EYE || CONFIG_CAMERA_MODEL_ESP32_CAM_BOARD
     /* IO13, IO14 is designed for JTAG by default,
@@ -46,32 +47,38 @@ void app_camera_main ()
 #endif
 
 #ifdef CONFIG_LED_ILLUMINATOR_ENABLED
-    gpio_set_direction(CONFIG_LED_LEDC_PIN,GPIO_MODE_OUTPUT);
+    gpio_set_direction(CONFIG_LED_LEDC_PIN, GPIO_MODE_OUTPUT);
     ledc_timer_config_t ledc_timer = {
-        .duty_resolution = LEDC_TIMER_8_BIT,            // resolution of PWM duty
-        .freq_hz         = 1000,                        // frequency of PWM signal
-        .speed_mode      = LEDC_LOW_SPEED_MODE,  // timer mode
-        .timer_num       = CONFIG_LED_LEDC_TIMER        // timer index
+        .duty_resolution = LEDC_TIMER_8_BIT, // resolution of PWM duty
+        .freq_hz = 1000, // frequency of PWM signal
+        .speed_mode = LEDC_LOW_SPEED_MODE, // timer mode
+        .timer_num = CONFIG_LED_LEDC_TIMER // timer index
     };
     ledc_channel_config_t ledc_channel = {
-        .channel    = CONFIG_LED_LEDC_CHANNEL,
-        .duty       = 0,
-        .gpio_num   = CONFIG_LED_LEDC_PIN,
+        .channel = CONFIG_LED_LEDC_CHANNEL,
+        .duty = 0,
+        .gpio_num = CONFIG_LED_LEDC_PIN,
         .speed_mode = LEDC_LOW_SPEED_MODE,
-        .hpoint     = 0,
-        .timer_sel  = CONFIG_LED_LEDC_TIMER
+        .hpoint = 0,
+        .timer_sel = CONFIG_LED_LEDC_TIMER
     };
-    #ifdef CONFIG_LED_LEDC_HIGH_SPEED_MODE
+#ifdef CONFIG_LED_LEDC_HIGH_SPEED_MODE
     ledc_timer.speed_mode = ledc_channel.speed_mode = LEDC_HIGH_SPEED_MODE;
-    #endif
+#endif
     switch (ledc_timer_config(&ledc_timer)) {
-        case ESP_ERR_INVALID_ARG: ESP_LOGE(TAG, "ledc_timer_config() parameter error"); break;
-        case ESP_FAIL: ESP_LOGE(TAG, "ledc_timer_config() Can not find a proper pre-divider number base on the given frequency and the current duty_resolution"); break;
-        case ESP_OK: if (ledc_channel_config(&ledc_channel) == ESP_ERR_INVALID_ARG) {
+    case ESP_ERR_INVALID_ARG:
+        ESP_LOGE(TAG, "ledc_timer_config() parameter error");
+        break;
+    case ESP_FAIL:
+        ESP_LOGE(TAG, "ledc_timer_config() Can not find a proper pre-divider number base on the given frequency and the current duty_resolution");
+        break;
+    case ESP_OK:
+        if (ledc_channel_config(&ledc_channel) == ESP_ERR_INVALID_ARG) {
             ESP_LOGE(TAG, "ledc_channel_config() parameter error");
-          }
-          break;
-        default: break;
+        }
+        break;
+    default:
+        break;
     }
 #endif
 
@@ -95,11 +102,10 @@ void app_camera_main ()
     config.pin_pwdn = PWDN_GPIO_NUM;
     config.pin_reset = RESET_GPIO_NUM;
     config.xclk_freq_hz = 20000000;
-    config.pixel_format = PIXFORMAT_JPEG;
-    //init with high specs to pre-allocate larger buffers
-    config.frame_size = FRAMESIZE_QSXGA;
-    config.jpeg_quality = 10;
-    config.fb_count = 2;
+    config.pixel_format = PIXFORMAT_GRAYSCALE;
+    config.frame_size = FRAMESIZE_QQVGA;
+    config.jpeg_quality = 0;
+    config.fb_count = 4;
 
     // camera init
     esp_err_t err = esp_camera_init(&config);
@@ -108,13 +114,11 @@ void app_camera_main ()
         return;
     }
 
-    sensor_t * s = esp_camera_sensor_get();
+    sensor_t* s = esp_camera_sensor_get();
     //initial sensors are flipped vertically and colors are a bit saturated
     if (s->id.PID == OV3660_PID) {
-        s->set_vflip(s, 1);//flip it back
-        s->set_brightness(s, 1);//up the blightness just a bit
-        s->set_saturation(s, -2);//lower the saturation
+        s->set_vflip(s, 1); //flip it back
+        s->set_brightness(s, 1); //up the blightness just a bit
+        s->set_saturation(s, -2); //lower the saturation
     }
-    //drop down frame size for higher initial frame rate
-    s->set_framesize(s, FRAMESIZE_HD);
 }
